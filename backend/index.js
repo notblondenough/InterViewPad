@@ -7,7 +7,7 @@ import axios from 'axios';
 
 const server = http.createServer(app);
 
-const url = `http://localhost:${process.env.PORT || 3000}/`;
+const url = "https://interviewpad.onrender.com";
 
 const interval = 30000;
 
