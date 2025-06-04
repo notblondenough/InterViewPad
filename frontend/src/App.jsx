@@ -4,7 +4,8 @@ import { useState,useRef } from "react";
 import Editor from "@monaco-editor/react";
 import { useEffect } from "react";
 import { v4 as uuid } from "uuid";
-const socket = io("http://localhost:3000");
+
+const socket = io("https://interviewpad.onrender.com");
 
 const App = () => {
   const [joined, setJoined] = useState(false);
