@@ -7,6 +7,23 @@ import axios from 'axios';
 
 const server = http.createServer(app);
 
+const url = `http://localhost:${process.env.PORT || 3000}/`;
+
+const interval = 30000;
+
+function reloadWebsite() {
+  axios
+    .get(url)
+    .then((response) => {
+      console.log("website reloded");
+    })
+    .catch((error) => {
+      console.error(`Error : ${error.message}`);
+    });
+}
+
+setInterval(reloadWebsite, interval);
+
 const io = new Server(server,{
     cors: {
         origin: '*',
@@ -111,8 +128,6 @@ io.on('connection', (socket) => {
                 language: language 
             });
             
-            console.log(`Room ${roomId} switched to ${language}`);
-            console.log(`Current code for ${language}:`, room.code[language]);
         }
     });
 
@@ -137,10 +152,8 @@ io.on('connection', (socket) => {
                 room.output = response.data.run.output || "Code executed successfully (no output)";
                 io.to(roomId).emit("codeOutput", room.output);
                 
-                console.log(`Code execution result:`, response.data.run);
                 
             } catch (error) {
-                console.error('Code compilation error:', error);
                 const errorMessage = `Error: ${error.message}`;
                 room.output = errorMessage;
                 io.to(roomId).emit("codeOutput", errorMessage);
@@ -181,14 +194,15 @@ io.on('connection', (socket) => {
     });
 });
 
-// Uncomment these lines when you have a built frontend
-// const __dirname = path.resolve();
-// app.use(express.static(path.join(__dirname, 'frontend/dist')));
-// app.get('*', (req, res) => {
-//   res.sendFile(path.join(__dirname, 'frontend/dist', 'index.html'));
-// });
-
 const port = process.env.PORT || 3000;
+
+const __dirname = path.resolve();
+
+app.use(express.static(path.join(__dirname, './frontend/dist')));
+
+app.get('/{*any}', (req, res) => {
+  res.sendFile(path.join(__dirname, './frontend/dist', 'index.html'));
+});
 
 server.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
