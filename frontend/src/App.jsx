@@ -1,6 +1,6 @@
 import "./App.css";
 import io from "socket.io-client";
-import { useState } from "react";
+import { useState,useRef } from "react";
 import Editor from "@monaco-editor/react";
 import { useEffect } from "react";
 import { v4 as uuid } from "uuid";
@@ -18,7 +18,10 @@ const App = () => {
   const [output, setOutput] = useState("");
   const [version, setVersion] = useState("*");
   const [input, setInput] = useState("");
-  
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState("");
+  const messagesEndRef = useRef(null);
+
   useEffect(() => {
     socket.on("userJoined", (users) => {
       setUsers(users);
@@ -33,10 +36,14 @@ const App = () => {
     });
 
     socket.on("userTyping", (userName) => {
-      setTypingUser(`${userName} is typing...`);
+      setTypingUser(`${userName} is coding...`);
       setTimeout(() => {
         setTypingUser("");
       }, 2000);
+    });
+
+    socket.on("userMessage", ({ userName, message }) => {
+      setMessages((prevMessages) => [...prevMessages, { userName, message }]);
     });
 
     socket.on("languageUpdate", (language) => {
@@ -47,6 +54,10 @@ const App = () => {
       setOutput(data);
     });
 
+    socket.on("userMessages", (messages) => {
+      setMessages(messages);
+    });
+    
     return () => {
       socket.off("userJoined");
       socket.off("codeUpdate");
@@ -54,10 +65,16 @@ const App = () => {
       socket.off("userTyping");
       socket.off("languageUpdate");
       socket.off("codeOutput");
+      socket.off("userMessages");
+      socket.off("userMessage");
     };
 
   }, []);
 
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+  
   useEffect(() => {
     const handleBeforeUnload = () => {
       socket.emit("leaveRoom");
@@ -121,26 +138,96 @@ const App = () => {
     setRoomId(newRoomId);
   }
 
+  const handleNewMessage = () => {
+    if (newMessage.trim()) {
+      socket.emit("newMessage", { roomId, userName, message: newMessage });
+      setMessages((prevMessages) => [...prevMessages, { userName, message: newMessage }]);
+      setNewMessage("");
+    }
+  }
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleNewMessage();
+    }
+  }
+
   if(!joined) {
-    return <div className="join-container">
+    return (
+    <div className="join-container">
+      <div className="join-header">
+        <div className="logo-section">
+          <h1 className="app-title">InterViewPad</h1>
+          <p className="app-description">
+            A real-time, collaborative coding environment designed specifically for technical interviews.
+          </p>
+        </div>
+      </div>
+
       <div className="join-form">
-        <h1>Join room Code</h1>
-        <input
-          type="text"
-          placeholder="Room ID"
-          value={roomId}
-          onChange={(e) => setRoomId(e.target.value)}
-        />
-        <button onClick={createRoomId}>Create Room</button>
-        <input
-          type="text"
-          placeholder="Your Name"
-          value={userName}
-          onChange={(e) => setUserName(e.target.value)}
-        />
-        <button onClick={joinRoom}> Join Room</button>
+        <div className="form-section">
+          <h2>Join Interview Session</h2>
+          <div className="input-group">
+            <label className="input-label">Your Name</label>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Enter your full name"
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
+            />
+          </div>
+
+          <div className="room-section">
+            <div className="room-options">
+              <div className="room-option">
+                <h3>Create New Room</h3>
+                <p>Start a new interview session</p>
+                <button className="btn btn-primary" onClick={createRoomId}>
+                  Generate Room ID
+                </button>
+              </div>
+              
+              <div className="divider">OR</div>
+              
+              <div className="room-option">
+                <h3>Join Existing Room</h3>
+                <p>Enter the room ID shared with you</p>
+                <div className="input-group">
+                  <input
+                    type="text"
+                    className="form-input room-input"
+                    placeholder="Enter Room ID (e.g., ABC123)"
+                    value={roomId}
+                    onChange={(e) => setRoomId(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button 
+              className="btn btn-join" 
+              onClick={joinRoom}
+              disabled={!roomId.trim() || !userName.trim()}
+            >
+              Join Interview Room
+            </button>
+          </div>
+        </div>
+
+        <div className="features-preview">
+          <h3>Features Available</h3>
+          <ul className="features-list">
+            <li>💻 Real-time collaborative coding</li>
+            <li>🌐 Multiple programming languages</li>
+            <li>▶️ Code execution and testing</li>
+            <li>👥 Live user presence</li>
+            <li>💬 Built-in communication</li>
+          </ul>
+        </div>
       </div>
     </div>
+    );
   }
   return (
       <div className="editor-container">
@@ -204,6 +291,36 @@ const App = () => {
             readOnly
             placeholder="Output will be displayed here..."
           />
+        </div>
+        <div className="chat-sidebar">
+          <div className="chat-header">
+            <h3>Chat</h3>
+          </div>
+          <div className="chat-messages">
+            {messages.map((msg, index) => (
+              <div key={index} className="chat-message">
+                <div className="message-user">{msg.userName}</div>
+                <div className="message-text">{msg.message}</div>
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+          <div className="chat-input-container">
+            <input
+              type="text"
+              className="chat-input"
+              placeholder="Type your message..."
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyPress={handleKeyPress}
+            />
+            <button
+              className="chat-send-button"
+              onClick={handleNewMessage}
+            >
+              Send
+            </button>
+          </div>
         </div>
       </div>
   )
